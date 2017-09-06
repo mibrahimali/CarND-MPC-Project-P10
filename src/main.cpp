@@ -98,9 +98,54 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
+
+          // Transforming incomming data to Vehicle Coordinates
+          double shift_x , shift_y,rotated_x,rotated_y;
+          vector<double> ptsx_veh , ptsy_veh;
+          for(size_t i=0;i<ptsx.size();i++)
+          {
+            shift_x = ptsx[i] - px;
+            shift_y = ptsy[i] - py;
+
+            rotated_x = shift_x* cos(-psi) - shift_y * sin(-psi);
+            rotated_y = shift_x* sin(-psi) + shift_y * cos(-psi);
+            ptsx_veh.push_back(rotated_x);
+            ptsy_veh.push_back(rotated_y);
+          }
+          double* ptr_x = &ptsx_veh[0];
+          double* ptr_y = &ptsy_veh[0];
+
+          Eigen::Map<Eigen::VectorXd> ptsx_v(ptr_x, ptsx_veh.size());
+          Eigen::Map<Eigen::VectorXd> ptsy_v(ptr_y, ptsy_veh.size());
+
+          // TODO: fit a polynomial to the above x and y coordinates
+          auto coeffs = polyfit(ptsx_v, ptsy_v, 3);
+
+          // TODO: calculate the cross track error
+          double cte = (polyeval(coeffs, px));
+          // TODO: calculate the orientation error
+          double epsi = - atan(coeffs[1]);
+
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+
+          // std::vector<double> x_vals = {state[0]};
+          // std::vector<double> y_vals = {state[1]};
+          // std::vector<double> psi_vals = {state[2]};
+          // std::vector<double> v_vals = {state[3]};
+          // std::vector<double> cte_vals = {state[4]};
+          // std::vector<double> epsi_vals = {state[5]};
+          // std::vector<double> delta_vals = {};
+          // std::vector<double> a_vals = {};
+
+          auto vars = mpc.Solve(state, coeffs);
+
           double steer_value;
           double throttle_value;
 
+
+          steer_value = vars[0] / deg2rad(25.0);
+          throttle_value = vars[1];
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
@@ -110,6 +155,15 @@ int main() {
           //Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
+          size_t x_start = 3;
+          size_t y_start = vars[2]+x_start;
+
+          for(size_t i=x_start;i<y_start;i++)
+          {
+            mpc_x_vals.push_back(vars[i]);
+            mpc_y_vals.push_back(vars[i+vars[2]]);
+          }
+          
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
@@ -120,6 +174,14 @@ int main() {
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
+
+
+          for(size_t i=0;i<20;i++)
+          {
+            double x_stride = i * 2;
+            next_x_vals.push_back(x_stride);
+            next_y_vals.push_back(polyeval(coeffs, x_stride));
+          }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
