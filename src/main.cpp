@@ -9,7 +9,7 @@
 #include "MPC.h"
 #include "json.hpp"
 
-#define us2sec 0.001f
+#define ms2sec 0.001f
 // for convenience
 using json = nlohmann::json;
 
@@ -92,15 +92,12 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-          int latancy_us = 0;
-
-          
-          // handling Controller Latancy
-          // using same kinematic model with assumption that no change in steering angle 
-          // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
-          // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
-          px += v * cos(psi) * (latancy_us*us2sec);
-          py += v * sin(psi) * (latancy_us*us2sec);
+          double steer_value=0;
+          double throttle_value=0;
+          // This is the length from front to CoG that has a similar radius.
+          const double Lf = 2.67;
+          int latancy_ms = 100;
+     
           // Transforming incomming data to Vehicle Coordinates
           double shift_x , shift_y,rotated_x,rotated_y;
           vector<double> ptsx_veh , ptsy_veh;
@@ -123,10 +120,12 @@ int main() {
           // TODO: fit a polynomial to the above x and y coordinates
           auto coeffs = polyfit(ptsx_v, ptsy_v, 3);
 
-          // TODO: calculate the cross track error
-          double cte = (polyeval(coeffs, px));
           // TODO: calculate the orientation error
-          double epsi = - atan(coeffs[1]);
+          double epsi = - atan(coeffs[1]); // - (v / Lf * steer_value * (latancy_ms*ms2sec));
+
+          // TODO: calculate the cross track error
+          double cte = (polyeval(coeffs, 0));// + v * sin(epsi) * (latancy_ms*ms2sec);
+          
 
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
@@ -140,13 +139,10 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          
-          double steer_value;
-          double throttle_value;
 
-
-          steer_value = vars[0] / deg2rad(25.0);
+          steer_value = vars[0] / deg2rad(25.0) / Lf;
           throttle_value = vars[1];
+          
           //Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
@@ -186,7 +182,8 @@ int main() {
           msgJson["next_y"] = next_y_vals;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           // std::cout << msg << std::endl;
-          
+          // past_steer_value = steer_value;
+          // past_throttle_value = throttle_value;
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.
@@ -196,7 +193,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(latancy_us));
+          this_thread::sleep_for(chrono::milliseconds(latancy_ms));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
