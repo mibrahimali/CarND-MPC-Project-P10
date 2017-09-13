@@ -176,7 +176,7 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
-          for(size_t i=0;i<20;i++)
+          for(size_t i=0;i<10;i++)
           {
             double x_stride = i * 2;
             next_x_vals.push_back(x_stride);
