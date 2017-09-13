@@ -71,8 +71,9 @@ int main() {
 
   // MPC is initialized here!
   MPC mpc;
-  
-  h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  double pre_steer_value=0;
+  double pre_throttle_value=0;
+  h.onMessage([&mpc,&pre_steer_value,&pre_throttle_value](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -121,14 +122,25 @@ int main() {
           auto coeffs = polyfit(ptsx_v, ptsy_v, 3);
 
           // TODO: calculate the orientation error
-          double epsi = - atan(coeffs[1]); // - (v / Lf * steer_value * (latancy_ms*ms2sec));
-
+          double epsi = - atan(coeffs[1]); 
           // TODO: calculate the cross track error
-          double cte = (polyeval(coeffs, 0));// + v * sin(epsi) * (latancy_ms*ms2sec);
+          double cte = (polyeval(coeffs, 0));
           
-
+          // handling Controller Latancy
+          // using same kinematic model with assumption that no change in steering angle 
+          // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+          // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+          // psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+          // v_[t+1] = v[t] + a[t] * dt
+          // cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
+          // epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
+          double px_predicted = v * cos(psi) * (latancy_ms*ms2sec);
+          // double py_predicted = v * sin(psi) * (latancy_ms*ms2sec); // Didn't used as lateral forces are not modeled
+          double v_actual = v + pre_throttle_value * (latancy_ms*ms2sec);
+          double epsi_actual = epsi + v / Lf * pre_steer_value * (latancy_ms*ms2sec);
+          double cte_actual = cte + v * sin(epsi) * (latancy_ms*ms2sec);
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          state << px_predicted, 0, 0, v_actual, cte_actual, epsi_actual;
 
           auto vars = mpc.Solve(state, coeffs);
 
@@ -142,6 +154,11 @@ int main() {
 
           steer_value = vars[0] / deg2rad(25.0) / Lf;
           throttle_value = vars[1];
+          // cout << "steer "<<steer_value<<" throttle_value "<<throttle_value<<" pre_steer_value "
+          // <<pre_steer_value<<" pre_throttle_value "<<pre_throttle_value<<endl;
+
+          pre_steer_value = steer_value;
+          pre_throttle_value = throttle_value;
           
           //Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
