@@ -24,6 +24,7 @@ At low and moderate speeds, kinematic models often approximate the actual vehicl
 * Vehicle Steering angle **()**.
 
 **Mathematical Model:**
+
 ![](readme_images/model.png)
 
 
