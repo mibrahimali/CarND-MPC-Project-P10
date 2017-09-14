@@ -15,6 +15,17 @@ The controller used a simple Kinematic model to model the vehicle. Kinematic mod
 This simplification reduces the accuracy of the models, but it also makes them more tractable.
 At low and moderate speeds, kinematic models often approximate the actual vehicle dynamics.
 
+**States:**
+* Vehicle Position **(x,y)**. 
+* Vehicle Velocity **(V)**.
+
+**Acctuation:**
+* Vehicle Throttle and break **(a)**.
+* Vehicle Steering angle **()**.
+
+**Mathematical Model:**
+![](readme_images/model.png)
+
 
 Timestep Length and Elapsed Duration (N & dt):
 ---
